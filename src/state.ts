@@ -244,8 +244,6 @@ class HTMLParser {
       return str;
     });
 
-    console.log(newStrings);
-
     return newStrings;
   }
 }
@@ -258,7 +256,7 @@ class StateManager {
     virtualDom: VirtualElement;
     listeners: Map<string, Function[]>;
   }[] = [];
-  public states: Map<string, State> = new Map();
+  private states: Map<string, State> = new Map();
 
   constructor(
     public elcoverage: HTMLElement,
@@ -283,6 +281,12 @@ class StateManager {
       throw new Error("StateManager already initialized");
     (window as any)["StateManager" as keyof Window] = this;
     this.loaded = true;
+  }
+
+  get state() {
+    return Array.from(this.states.values()).reduce((acc, curr) => {
+      return { ...acc, [curr.name]: curr.current };
+    }, {});
   }
 
   static UpdateState(stateName: string | Element, newState: any) {
@@ -486,10 +490,7 @@ class StateManager {
     } else if (consumer.$host instanceof Text) {
       newVirtual.setPorp(
         "nodeValue",
-        this.config.parser.StringfyArray(
-          textNodesFunctionCallbacks,
-          this.states
-        )
+        this.config.parser.StringfyArray(textNodesFunctionCallbacks, this.state)
       );
     }
 

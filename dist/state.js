@@ -177,7 +177,6 @@ class HTMLParser {
             }
             return str;
         });
-        console.log(newStrings);
         return newStrings;
     }
 }
@@ -206,6 +205,11 @@ class StateManager {
             throw new Error("StateManager already initialized");
         window["StateManager"] = this;
         this.loaded = true;
+    }
+    get state() {
+        return Array.from(this.states.values()).reduce((acc, curr) => {
+            return { ...acc, [curr.name]: curr.current };
+        }, {});
     }
     static UpdateState(stateName, newState) {
         const stateManager = window["StateManager"];
@@ -348,7 +352,7 @@ class StateManager {
             });
         }
         else if (consumer.$host instanceof Text) {
-            newVirtual.setPorp("nodeValue", this.config.parser.StringfyArray(textNodesFunctionCallbacks, this.states));
+            newVirtual.setPorp("nodeValue", this.config.parser.StringfyArray(textNodesFunctionCallbacks, this.state));
         }
         VirtualElement.Update(consumer.$host.parentElement, newVirtual, consumer).transferValuesTo(consumer);
         if (this.config &&
