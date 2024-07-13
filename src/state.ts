@@ -75,13 +75,9 @@ class VirtualElement {
   private createElement() {
     let el: HTMLElement | Text = document.createElement("div");
 
-    if (this.$host) {
-      el = this.$host.cloneNode() as HTMLElement;
-    }
-
     if (this.type === "#text") {
       el = document.createTextNode(this.props?.nodeValue);
-    } else if (!this.$host && this.type !== "#text") {
+    } else if (this.type !== "#text") {
       el = document.createElement(this.type);
     }
 
@@ -91,7 +87,14 @@ class VirtualElement {
           value: this.props[prop],
         });
       }
+
+      if (this.props.attributes && el instanceof HTMLElement) {
+        for (let att in this.props.attributes) {
+          el.setAttribute(att, this.props.attributes[att]);
+        }
+      }
     }
+
 
     if (this.children) {
       this.children.forEach((child) => {
