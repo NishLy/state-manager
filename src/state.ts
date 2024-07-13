@@ -170,7 +170,62 @@ class VirtualElement {
 
 type ConfiGStateManagerType = {
   templateEngineProcessor?: any;
+  parser: HTMLParser;
+  keyword?: string;
 };
+
+type HTMLParserConfig = {
+  separator: string;
+};
+
+class HTMLParser {
+  constructor(
+    public config: HTMLParserConfig = {
+      separator: "{}",
+    }
+  ) {
+    if (config.separator.length !== 2) {
+      throw new Error("Separator must be 2 characters long");
+    }
+  }
+
+  StringfyArray(arr: (Function | string)[], additional?: any) {
+    return arr.reduce((acc, curr) => {
+      return acc + (typeof curr === "function" ? curr(additional) : curr) + " ";
+    }, "");
+  }
+
+  ParseStringToFunction(
+    html: string,
+    parameterName: string
+  ): (Function | string)[] {
+    const { separator } = this.config;
+    const regExp = new RegExp(
+      `${separator[0]}((?![\\s\\n]).)+${separator[1]}`,
+      "g"
+    );
+
+    const strings: (string | Function)[] = html.split(" ");
+
+    for (let index = 0; index < strings.length; index++) {
+      if (regExp.test(strings[index] as string)) {
+        const fc = new Function(
+          parameterName,
+          " return " +
+            (strings[index] as string).replace(
+              new RegExp(`[${separator}]`, "g"),
+              ""
+            )
+        );
+
+        strings[index] = fc;
+        continue;
+      }
+    }
+
+    return strings;
+  }
+}
 
 class StateManager {
   public loaded = false;
@@ -184,7 +239,12 @@ class StateManager {
 
   constructor(
     public elcoverage: HTMLElement,
-    public config?: ConfiGStateManagerType
+    public config: ConfiGStateManagerType = {
+      parser: new HTMLParser({
+        separator: "{}",
+      }),
+      keyword: "state",
+    }
   ) {
     this.init();
   }
@@ -367,11 +427,14 @@ class StateManager {
   }
 
   renderConsumer(consumer: VirtualElement, state: State) {
-    const { attributeListeners, textNodesListeners } =
+    const { attributeFunctionCallbacks, textNodesFunctionCallbacks } =
       consumer.getPorp("templates") ||
       this.extractTemplateFormConsumer(consumer);
 
-    consumer.setPorp("templates", { attributeListeners, textNodesListeners });
+    consumer.setPorp("templates", {
+      attributeFunctionCallbacks,
+      textNodesFunctionCallbacks,
+    });
 
     const newVirtual = new VirtualElement(
       consumer.type,
@@ -382,36 +445,29 @@ class StateManager {
     newVirtual.bindHost(consumer.$host);
 
     if (consumer.$host instanceof HTMLElement) {
-      attributeListeners.forEach((listener: { [key: string]: string }) => {
-        const [key] = Object.keys(listener);
-        const value = listener[key];
+      attributeFunctionCallbacks.forEach(
+        (listener: { [key: string]: string }) => {
+          const [key] = Object.keys(listener);
+          const value = listener[key];
 
-        if (value.startsWith("state")) {
-          newVirtual.setAttribute(key, state.current);
-        }
+          if (value.startsWith("state")) {
+            newVirtual.setAttribute(key, state.current);
+          }
 
-        if (value.includes("state.")) {
-          const stateValue = state.current[value.split("state.")[1]];
-          newVirtual.setAttribute(key, stateValue);
+          if (value.includes("state.")) {
+            const stateValue = state.current[value.split("state.")[1]];
+            newVirtual.setAttribute(key, stateValue);
+          }
         }
-      });
+      );
     } else if (consumer.$host instanceof Text) {
-      textNodesListeners.forEach((key: string) => {
-        if (key.includes("state.")) {
-          const stateValue = state.current[key.split("state.")[1]];
-          newVirtual.setPorp(
-            "nodeValue",
-            (key as string).replace(/{state(\.[a-zA-Z0-9_]+)?}/g, stateValue)
-          );
-        }
-
-        if (key.includes("state")) {
-          newVirtual.setPorp(
-            "nodeValue",
-            (key as string).replace(/{state(\.[a-zA-Z0-9_]+)?}/g, state.current)
-          );
-        }
-      });
+      newVirtual.setPorp(
+        "nodeValue",
+        this.config.parser.StringfyArray(
+          textNodesFunctionCallbacks,
+          this.states
+        )
+      );
     }
 
     VirtualElement.Update(
@@ -458,9 +514,13 @@ class StateManager {
       });
   }
 
-  private extractTemplateFormConsumer(consumer: VirtualElement) {
-    const attributeListeners: Set<{ [key: string]: string }> = new Set();
-    const textNodesListeners: Set<string> = new Set();
+  private extractTemplateFormConsumer(consumer: VirtualElement): {
+    attributeFunctionCallbacks: Set<{ [key: string]: string }>;
+    textNodesFunctionCallbacks: Function[];
+  } {
+    const attributeFunctionCallbacks: Set<{ [key: string]: string }> =
+      new Set();
+    let textNodesFunctionCallbacks = new Array();
 
     function getAttributeListener(el: VirtualElement) {
       for (
@@ -478,29 +538,30 @@ class StateManager {
         }
 
         if (att.nodeValue && att.nodeValue.startsWith("state")) {
-          attributeListeners.add({
+          attributeFunctionCallbacks.add({
             [att.nodeName]: att.nodeValue,
           });
         }
       }
     }
 
-    function getTextNodeListener(el: VirtualElement) {
-      const matchesValueConsumers = el
-        .getPorp("nodeValue")
-        .match(/({state(\.[a-zA-Z0-9_]+)?})/g);
-
-      if (matchesValueConsumers) {
-        for (let match of matchesValueConsumers) {
-          textNodesListeners.add(el.$host?.nodeValue ?? "");
-        }
-      }
+    function getTextNodeListener(
+      el: VirtualElement,
+      proccesor: (text: string, keyword: string) => (Function | string)[],
+      keyword: string
+    ) {
+      return proccesor(el.getPorp("nodeValue") as string, keyword);
     }
 
     if (consumer.$host instanceof Element) getAttributeListener(consumer);
-    else getTextNodeListener(consumer);
+    else
+      textNodesFunctionCallbacks = getTextNodeListener(
+        consumer,
+        this.config.parser.ParseStringToFunction.bind(this.config.parser),
+        this.config.keyword || "state"
+      );
 
-    return { attributeListeners, textNodesListeners };
+    return { attributeFunctionCallbacks, textNodesFunctionCallbacks };
   }
 
   getAllConsumer(): VirtualElement[] {

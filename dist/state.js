@@ -31,7 +31,7 @@ class VirtualElement {
         const virtual = node instanceof Element
             ? new VirtualElement(node.nodeName, {
                 attributes: Array.from(node.attributes).reduce((atts, att) => {
-                    return Object.assign(Object.assign({}, atts), { [att.nodeName]: att.nodeValue });
+                    return { ...atts, [att.nodeName]: att.nodeValue };
                 }, {}),
             }, Array.from(node.childNodes).map((child) => VirtualElement.fromElement(child)))
             : new VirtualElement(node.nodeName, { nodeValue: node.nodeValue });
@@ -43,13 +43,12 @@ class VirtualElement {
         return this;
     }
     createElement() {
-        var _a;
         let el = document.createElement("div");
         if (this.$host) {
             el = this.$host.cloneNode();
         }
         if (this.type === "#text") {
-            el = document.createTextNode((_a = this.props) === null || _a === void 0 ? void 0 : _a.nodeValue);
+            el = document.createTextNode(this.props?.nodeValue);
         }
         else if (!this.$host && this.type !== "#text") {
             el = document.createElement(this.type);
@@ -83,16 +82,14 @@ class VirtualElement {
         return changed;
     }
     getAttribute(name) {
-        var _a;
         if (!this.props)
             return;
         if (!this.props.attributes)
             return;
-        return (_a = this.props) === null || _a === void 0 ? void 0 : _a.attributes[name];
+        return this.props?.attributes[name];
     }
     getAttributes() {
-        var _a;
-        return (_a = this.props) === null || _a === void 0 ? void 0 : _a.attributes;
+        return this.props?.attributes;
     }
     setAttributes(attributes) {
         if (!this.props)
@@ -137,8 +134,42 @@ class VirtualElement {
         return newElement;
     }
 }
+class HTMLParser {
+    constructor(config = {
+        separator: "{}",
+    }) {
+        this.config = config;
+        if (config.separator.length !== 2) {
+            throw new Error("Separator must be 2 characters long");
+        }
+    }
+    StringfyArray(arr, additional) {
+        return arr.reduce((acc, curr) => {
+            return acc + (typeof curr === "function" ? curr(additional) : curr) + " ";
+        }, "");
+    }
+    ParseStringToFunction(html, parameterName) {
+        const { separator } = this.config;
+        const regExp = new RegExp(`${separator[0]}((?![\\s\\n]).)+${separator[1]}`, "g");
+        const strings = html.split(" ");
+        for (let index = 0; index < strings.length; index++) {
+            if (regExp.test(strings[index])) {
+                const fc = new Function(parameterName, " return " +
+                    strings[index].replace(new RegExp(`[${separator}]`, "g"), ""));
+                strings[index] = fc;
+                continue;
+            }
+        }
+        return strings;
+    }
+}
 class StateManager {
-    constructor(elcoverage, config) {
+    constructor(elcoverage, config = {
+        parser: new HTMLParser({
+            separator: "{}",
+        }),
+        keyword: "state",
+    }) {
         this.elcoverage = elcoverage;
         this.config = config;
         this.loaded = false;
@@ -277,13 +308,16 @@ class StateManager {
         });
     }
     renderConsumer(consumer, state) {
-        const { attributeListeners, textNodesListeners } = consumer.getPorp("templates") ||
+        const { attributeFunctionCallbacks, textNodesFunctionCallbacks } = consumer.getPorp("templates") ||
             this.extractTemplateFormConsumer(consumer);
-        consumer.setPorp("templates", { attributeListeners, textNodesListeners });
+        consumer.setPorp("templates", {
+            attributeFunctionCallbacks,
+            textNodesFunctionCallbacks,
+        });
         const newVirtual = new VirtualElement(consumer.type, consumer.props, consumer.children);
         newVirtual.bindHost(consumer.$host);
         if (consumer.$host instanceof HTMLElement) {
-            attributeListeners.forEach((listener) => {
+            attributeFunctionCallbacks.forEach((listener) => {
                 const [key] = Object.keys(listener);
                 const value = listener[key];
                 if (value.startsWith("state")) {
@@ -296,15 +330,7 @@ class StateManager {
             });
         }
         else if (consumer.$host instanceof Text) {
-            textNodesListeners.forEach((key) => {
-                if (key.includes("state.")) {
-                    const stateValue = state.current[key.split("state.")[1]];
-                    newVirtual.setPorp("nodeValue", key.replace(/{state(\.[a-zA-Z0-9_]+)?}/g, stateValue));
-                }
-                if (key.includes("state")) {
-                    newVirtual.setPorp("nodeValue", key.replace(/{state(\.[a-zA-Z0-9_]+)?}/g, state.current));
-                }
-            });
+            newVirtual.setPorp("nodeValue", this.config.parser.StringfyArray(textNodesFunctionCallbacks, this.states));
         }
         VirtualElement.Update(consumer.$host.parentElement, newVirtual, consumer).transferValuesTo(consumer);
         if (this.config &&
@@ -325,7 +351,7 @@ class StateManager {
             .map((producer) => {
             const virtual = new VirtualElement(producer.tagName, {
                 attributes: Object.assign({}, Array.from(producer.attributes).reduce((atts, att) => {
-                    return Object.assign(Object.assign({}, atts), { [att.nodeName]: att.nodeValue });
+                    return { ...atts, [att.nodeName]: att.nodeValue };
                 }, {})),
             });
             virtual.bindHost(producer);
@@ -333,8 +359,8 @@ class StateManager {
         });
     }
     extractTemplateFormConsumer(consumer) {
-        const attributeListeners = new Set();
-        const textNodesListeners = new Set();
+        const attributeFunctionCallbacks = new Set();
+        let textNodesFunctionCallbacks = new Array();
         function getAttributeListener(el) {
             for (let att, i = 0, atts = el.$host.attributes, n = atts.length; i < n; i++) {
                 att = atts[i];
@@ -342,28 +368,20 @@ class StateManager {
                     continue;
                 }
                 if (att.nodeValue && att.nodeValue.startsWith("state")) {
-                    attributeListeners.add({
+                    attributeFunctionCallbacks.add({
                         [att.nodeName]: att.nodeValue,
                     });
                 }
             }
         }
-        function getTextNodeListener(el) {
-            var _a, _b;
-            const matchesValueConsumers = el
-                .getPorp("nodeValue")
-                .match(/({state(\.[a-zA-Z0-9_]+)?})/g);
-            if (matchesValueConsumers) {
-                for (let match of matchesValueConsumers) {
-                    textNodesListeners.add((_b = (_a = el.$host) === null || _a === void 0 ? void 0 : _a.nodeValue) !== null && _b !== void 0 ? _b : "");
-                }
-            }
+        function getTextNodeListener(el, proccesor, keyword) {
+            return proccesor(el.getPorp("nodeValue"), keyword);
         }
         if (consumer.$host instanceof Element)
             getAttributeListener(consumer);
         else
-            getTextNodeListener(consumer);
-        return { attributeListeners, textNodesListeners };
+            textNodesFunctionCallbacks = getTextNodeListener(consumer, this.config.parser.ParseStringToFunction.bind(this.config.parser), this.config.keyword || "state");
+        return { attributeFunctionCallbacks, textNodesFunctionCallbacks };
     }
     getAllConsumer() {
         const consumers = this.elcoverage.querySelectorAll("[data-state-consumer]");
