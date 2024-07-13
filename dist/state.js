@@ -173,10 +173,11 @@ class HTMLParser {
         let newString = html;
         matches.forEach((match) => {
             const value = html.slice(match.start + 1, match.end);
-            newString = newString.replace(html.slice(match.start, match.end + 1), `%${value.replace(/ /g, "")}%`);
+            newString = newString.replace(html.slice(match.start, match.end + 1), `%${value.replace(/ /g, "%S")}%`);
         });
         const regExp = new RegExp(`%.+%`, "g");
         return newString.split(" ").map((str) => {
+            str = str.replace(/%S/g, " ");
             if (str.match(regExp)) {
                 return new Function(parameterName, `return ${str.replace(/%/g, "")}`);
             }
@@ -407,7 +408,6 @@ class StateManager {
             getAttributeListener(consumer);
         else
             textNodesFunctionCallbacks = getTextNodeListener(consumer, this.config.parser.ParseStringToFunction.bind(this.config.parser), this.config.keyword || "state");
-        console.log(textNodesFunctionCallbacks);
         return { attributeFunctionCallbacks, textNodesFunctionCallbacks };
     }
     getAllConsumer() {
