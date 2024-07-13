@@ -72,6 +72,10 @@ class VirtualElement {
     return this;
   }
 
+  public getHost() {
+    return this.$host;
+  }
+
   private createElement() {
     let el: HTMLElement | Text = document.createElement("div");
 
@@ -94,7 +98,6 @@ class VirtualElement {
         }
       }
     }
-
 
     if (this.children) {
       this.children.forEach((child) => {
