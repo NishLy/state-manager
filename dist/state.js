@@ -150,17 +150,35 @@ class HTMLParser {
     }
     ParseStringToFunction(html, parameterName) {
         const { separator } = this.config;
-        const regExp = new RegExp(`${separator[0]}((?![\\s\\n]).)+${separator[1]}`, "g");
-        const strings = html.split(" ");
-        for (let index = 0; index < strings.length; index++) {
-            if (regExp.test(strings[index])) {
-                const fc = new Function(parameterName, " return " +
-                    strings[index].replace(new RegExp(`[${separator}]`, "g"), ""));
-                strings[index] = fc;
-                continue;
+        const regExp = new RegExp(`${separator[0]}.+${separator[1]}`, "g");
+        let newStrings = html.split(" ");
+        const match = {
+            start: null,
+            end: null,
+        };
+        newStrings.forEach((str, index) => {
+            if (str.includes(separator[0])) {
+                match.start = index;
             }
-        }
-        return strings;
+            if (str.includes(separator[1])) {
+                match.end = index;
+            }
+            if (match.start !== null && match.end !== null) {
+                newStrings.splice(match.start, match.end - match.start + 1, newStrings.slice(match.start, match.end + 1).join(" "));
+                match.start = null;
+                match.end = null;
+            }
+        });
+        newStrings = newStrings.map((str) => {
+            if (str.match(regExp)) {
+                const fc = new Function(parameterName, " return " +
+                    str.replace(new RegExp(`[${separator}]`, "g"), ""));
+                return fc;
+            }
+            return str;
+        });
+        console.log(newStrings);
+        return newStrings;
     }
 }
 class StateManager {

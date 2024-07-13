@@ -200,30 +200,53 @@ class HTMLParser {
     parameterName: string
   ): (Function | string)[] {
     const { separator } = this.config;
-    const regExp = new RegExp(
-      `${separator[0]}((?![\\s\\n]).)+${separator[1]}`,
-      "g"
-    );
+    const regExp = new RegExp(`${separator[0]}.+${separator[1]}`, "g");
 
-    const strings: (string | Function)[] = html.split(" ");
+    let newStrings: (string | Function)[] = html.split(" ");
 
-    for (let index = 0; index < strings.length; index++) {
-      if (regExp.test(strings[index] as string)) {
+    const match: {
+      start: number | null;
+      end: number | null;
+    } = {
+      start: null,
+      end: null,
+    };
+    newStrings.forEach((str, index) => {
+      if ((str as string).includes(separator[0])) {
+        match.start = index;
+      }
+
+      if ((str as string).includes(separator[1])) {
+        match.end = index;
+      }
+
+      if (match.start !== null && match.end !== null) {
+        newStrings.splice(
+          match.start,
+          match.end - match.start + 1,
+          newStrings.slice(match.start, match.end + 1).join(" ")
+        );
+        match.start = null;
+        match.end = null;
+      }
+    });
+
+    newStrings = newStrings.map((str) => {
+      if ((str as string).match(regExp)) {
         const fc = new Function(
           parameterName,
           " return " +
-            (strings[index] as string).replace(
-              new RegExp(`[${separator}]`, "g"),
-              ""
-            )
+            (str as string).replace(new RegExp(`[${separator}]`, "g"), "")
         );
 
-        strings[index] = fc;
-        continue;
+        return fc;
       }
-    }
+      return str;
+    });
 
-    return strings;
+    console.log(newStrings);
+
+    return newStrings;
   }
 }
 
