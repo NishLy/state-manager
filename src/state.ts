@@ -38,13 +38,21 @@ class VirtualElement {
     this.props = props || { attributes: {} };
   }
 
-  static fromElement(node: Node | Element): VirtualElement {
+  static fromElement(
+    node: Node | Element,
+    config?: {
+      excludedAttributes?: string[];
+    }
+  ): VirtualElement {
     const virtual =
       node instanceof Element
         ? new VirtualElement(
             node.nodeName,
             {
               attributes: Array.from(node.attributes).reduce((atts, att) => {
+                if (config?.excludedAttributes?.includes(att.nodeName)) {
+                  return atts;
+                }
                 return { ...atts, [att.nodeName]: att.nodeValue };
               }, {}),
             },
@@ -596,7 +604,9 @@ class StateManager {
   getAllConsumer(): VirtualElement[] {
     const consumers = this.elcoverage.querySelectorAll("[data-state-consumer]");
     return Array.from(consumers).map((consumer) =>
-      VirtualElement.fromElement(consumer as Element)
+      VirtualElement.fromElement(consumer as Element, {
+        excludedAttributes: ["data-state-initialvalue"],
+      })
     );
   }
 }

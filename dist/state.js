@@ -27,10 +27,13 @@ class VirtualElement {
         this.$host = null;
         this.props = props || { attributes: {} };
     }
-    static fromElement(node) {
+    static fromElement(node, config) {
         const virtual = node instanceof Element
             ? new VirtualElement(node.nodeName, {
                 attributes: Array.from(node.attributes).reduce((atts, att) => {
+                    if (config?.excludedAttributes?.includes(att.nodeName)) {
+                        return atts;
+                    }
                     return { ...atts, [att.nodeName]: att.nodeValue };
                 }, {}),
             }, Array.from(node.childNodes).map((child) => VirtualElement.fromElement(child)))
@@ -412,6 +415,8 @@ class StateManager {
     }
     getAllConsumer() {
         const consumers = this.elcoverage.querySelectorAll("[data-state-consumer]");
-        return Array.from(consumers).map((consumer) => VirtualElement.fromElement(consumer));
+        return Array.from(consumers).map((consumer) => VirtualElement.fromElement(consumer, {
+            excludedAttributes: ["data-state-initialvalue"],
+        }));
     }
 }
