@@ -1,0 +1,12 @@
+{
+  "name": "state-manager",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon --watch src --exec tsc --ext ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}

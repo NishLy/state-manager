@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="/dist/index.js"></script>
+    <script src="/dist/state.js"></script>
+    <title>Document</title>
+  </head>
+  <body>
+    <h1
+      data-state-consumer="counter"
+      value="state"
+      align="center"
+      data-state-initialvalue="0"
+    >
+      current counter is {state} {state.dsada}
+    </h1>
+    <div style="display: flex; justify-content: center; width: 100%; gap: 2rem">
+      <button
+        data-state-producer
+        onclick="(e,states)=>{
+            StateManager.UpdateState('counter', states.get('counter').current + 1);
+        }"
+      >
+        Plus
+      </button>
+      <script  >
+        const decrease = (e, states) => {
+          StateManager.UpdateState(
+            "counter",
+            states.get("counter").current - 1
+          );
+        };
+      </script>
+      <button data-state-producer onclick="decrease">Minus</button>
+    </div>
+  </body>
+</html>
