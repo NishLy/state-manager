@@ -150,34 +150,38 @@ class HTMLParser {
     }
     ParseStringToFunction(html, parameterName) {
         const { separator } = this.config;
-        const regExp = new RegExp(`${separator[0]}.+${separator[1]}`, "g");
-        let newStrings = html.split(" ");
-        const match = {
-            start: null,
-            end: null,
-        };
-        newStrings.forEach((str, index) => {
-            if (str.includes(separator[0])) {
-                match.start = index;
+        function extract(str) {
+            const matches = [];
+            for (let index = 0; index < str.length; index++) {
+                if (str[index] === separator[0]) {
+                    matches.push({ start: index, end: null, type: "curly" });
+                    continue;
+                }
+                if (str[index] === separator[1]) {
+                    for (let index2 = matches.length - 1; index2 >= 0; index2--) {
+                        if (matches[index2].end === null &&
+                            matches[index2].type === "curly") {
+                            matches[index2].end = index;
+                            break;
+                        }
+                    }
+                }
             }
-            if (str.includes(separator[1])) {
-                match.end = index;
-            }
-            if (match.start !== null && match.end !== null) {
-                newStrings.splice(match.start, match.end - match.start + 1, newStrings.slice(match.start, match.end + 1).join(" "));
-                match.start = null;
-                match.end = null;
-            }
+            return matches;
+        }
+        const matches = extract(html);
+        let newString = html;
+        matches.forEach((match) => {
+            const value = html.slice(match.start + 1, match.end);
+            newString = newString.replace(html.slice(match.start, match.end + 1), `%${value.replace(/ /g, "")}%`);
         });
-        newStrings = newStrings.map((str) => {
+        const regExp = new RegExp(`%.+%`, "g");
+        return newString.split(" ").map((str) => {
             if (str.match(regExp)) {
-                const fc = new Function(parameterName, " return " +
-                    str.replace(new RegExp(`[${separator}]`, "g"), ""));
-                return fc;
+                return new Function(parameterName, `return ${str.replace(/%/g, "")}`);
             }
-            return str;
+            return str.replace(/%/g, "");
         });
-        return newStrings;
     }
 }
 class StateManager {
@@ -403,6 +407,7 @@ class StateManager {
             getAttributeListener(consumer);
         else
             textNodesFunctionCallbacks = getTextNodeListener(consumer, this.config.parser.ParseStringToFunction.bind(this.config.parser), this.config.keyword || "state");
+        console.log(textNodesFunctionCallbacks);
         return { attributeFunctionCallbacks, textNodesFunctionCallbacks };
     }
     getAllConsumer() {
