@@ -475,6 +475,10 @@ export class StateManager {
       VirtualElement.fromElement(consumer as Element, {})
     );
   }
+
+  getState(stateName: string): State | undefined {
+    return this.states.get(stateName);
+  }
 }
 
 declare global {
