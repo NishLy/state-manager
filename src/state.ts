@@ -94,7 +94,6 @@ export class StateManager {
     this.attachedConsumers = this.getAllConsumer();
     this.attachedProducers = this.getAllProducer();
 
-
     this.initConsumer();
     this.initProducer();
 
@@ -132,7 +131,7 @@ export class StateManager {
 
     const [sliceName, reducerName] = action.type!.split("/");
 
-    console.log(sliceName, reducerName,stateManager.attacedSlices);
+    console.log(sliceName, reducerName, stateManager.attacedSlices);
     const slice = stateManager.attacedSlices.get(sliceName);
 
     if (!slice) {
@@ -150,15 +149,13 @@ export class StateManager {
       stateManager.states.get(sliceName)?.value
     );
 
-    
     if (!newState) {
       throw new Error("State not found");
     }
-    
+
     console.log(newState);
     reducer(newState, action);
     console.log(newState);
-
 
     stateManager.setState(sliceName, newState.value);
   }
@@ -209,7 +206,11 @@ export class StateManager {
       .forEach(() => stateManager.setState(stateName, newState));
   }
 
-  defineListeners(
+  public dispatch(type: string, payload: any) {
+    StateManager.Dispatch({ type, payload });
+  }
+
+  private defineListeners(
     producer: VirtualElement,
     states: Map<string, State>
   ): Map<string, Function[]> {
@@ -278,7 +279,7 @@ export class StateManager {
     return eventListeners;
   }
 
-  attachProducerListeners(producer: VirtualElement) {
+  private attachProducerListeners(producer: VirtualElement) {
     const eventListeners = this.defineListeners(producer, this.states);
 
     producer.setPorp("eventListeners", eventListeners);
@@ -289,7 +290,7 @@ export class StateManager {
     });
   }
 
-  initProducer() {
+  private initProducer() {
     const producers = this.getAllProducer();
     producers.forEach((producer) => {
       if (producer.$host) {
