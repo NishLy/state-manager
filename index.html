@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="/dist/state.js" type="module" defer></script>
+    <script src="/dist/index.js" type="module" defer></script>
     <title>Document</title>
   </head>
   <body>
@@ -13,33 +13,26 @@
       align="center"
       data-state-initialvalue="0"
     >
-      current counter is {state ? state.counter + 10 : null} {state.counter}
+      current counter is {state ? state.counter.value + 10 : null} {state.counter.value}
     </h1>
     <div style="display: flex; justify-content: center; width: 100%; gap: 2rem">
       <button
         data-state-producer
         onclick="(e,states)=>{
-            StateManager.UpdateState('counter', states.get('counter').current + 1);
+            StateManager.UpdateState('counter', states.get('counter').value + 1);
         }"
       >
         Plus
       </button>
       <script>
         const decrease = (e, states) => {
-          StateManager.UpdateState(
+          State.UpdateState(
             "counter",
-            states.get("counter").current - 1
+            states.get("counter").value - 1
           );
         };
       </script>
       <button data-state-producer onclick="decrease">Minus</button>
     </div>
-    <script type="module" src="">
-      import { StateManager } from "/dist/index.js";
-
-      document.addEventListener("DOMContentLoaded", () => {
-        StateManager.Init();
-      });
-    </script>
   </body>
 </html>

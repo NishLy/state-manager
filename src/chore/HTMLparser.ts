@@ -14,6 +14,7 @@ class HTMLParser {
   }
 
   StringfyArray(arr: (Function | string)[], additional?: any) {
+    console.log(arr,additional);
     return arr.reduce((acc, curr) => {
       return acc + (typeof curr === "function" ? curr(additional) : curr) + " ";
     }, "");

@@ -1,6 +1,6 @@
-import VirtualElement from "./chore/virtualDOM";
-import State from "./chore/state";
-import HTMLParser from "./chore/HTMLparser";
+import VirtualElement from "./chore/virtualDOM.js";
+import State from "./chore/state.js";
+import HTMLParser from "./chore/HTMLparser.js";
 
 type ConfiGStateManagerType = {
   templateEngineProcessor?: any;
@@ -61,6 +61,7 @@ export class StateManager {
     virtualDom: VirtualElement;
     listeners: Map<string, Function[]>;
   }[] = [];
+
   private states: Map<string, State> = new Map();
 
   constructor(
@@ -471,9 +472,15 @@ export class StateManager {
   getAllConsumer(): VirtualElement[] {
     const consumers = this.elcoverage.querySelectorAll("[data-state-consumer]");
     return Array.from(consumers).map((consumer) =>
-      VirtualElement.fromElement(consumer as Element, {
-        excludedAttributes: ["data-state-initialvalue"],
-      })
+      VirtualElement.fromElement(consumer as Element, {})
     );
   }
 }
+
+declare global {
+  interface Window {
+    State: typeof StateManager;
+  }
+}
+
+window.State = StateManager;
