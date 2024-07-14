@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Input With Slice</title>
+  </head>
+  <body>
+    <h1>User Input with slice</h1>
+    <script type="module">
+      import { StateManager } from "/dist/state.js";
+
+      const userSlice = StateManager.CreateSlice({
+        name: "user",
+        initialState: {
+          name: "John Doe",
+          age: 25,
+        },
+        reducers: {
+          setName: (state, action) => {
+            state.name = action.payload;
+          },
+          setAge: (state, action) => {
+            state.age = action.payload;
+          },
+        },
+      });
+
+      const stateManager = new StateManager(document.body, {
+        slices: [userSlice],
+      });
+
+      console.log(stateManager);
+    </script>
+  </body>
+</html>

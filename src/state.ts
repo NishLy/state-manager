@@ -2,6 +2,13 @@ import VirtualElement from "./chore/virtualDOM.js";
 import State from "./chore/state.js";
 import HTMLParser from "./chore/HTMLparser.js";
 
+declare global {
+  interface Window {
+    StateManager: typeof StateManager;
+    State: StateManager;
+  }
+}
+
 type ConfiGStateManagerType = {
   templateEngineProcessor?: any;
   parser: HTMLParser;
@@ -85,18 +92,21 @@ export class StateManager {
 
     this.init_slices(this.config.slices || []);
 
-    if ((window as any)["StateManager" as keyof Window])
+    if ((window as any)["State" as keyof Window])
       throw new Error("StateManager already initialized");
-    (window as any)["StateManager" as keyof Window] = this;
+    (window as any)["State" as keyof Window] = this;
     this.loaded = true;
   }
 
   init_slices(slices: StateManagerSlice[]) {
     this.attacedSlices = new Map(slices.map((slice) => [slice.name, slice]));
-    slices.forEach((slice) => {
-      this.states.set(slice.name, slice.state);
-      this.setState(slice.name, this.states.get(slice.name)?.value);
-    });
+    for (let slice of this.attacedSlices) {
+      this.states.set(slice[0], slice[1].state);
+      this.setState(
+        this.states.get(slice[0])!.name,
+        this.states.get(slice[0])!.value
+      );
+    }
   }
 
   get state(): ReadOnlyStates {
@@ -112,7 +122,7 @@ export class StateManager {
   }
 
   static Dispatch(action: ActionPayload) {
-    const stateManager = window["StateManager" as keyof Window] as StateManager;
+    const stateManager = window["State" as keyof Window] as StateManager;
 
     if (!stateManager) {
       throw new Error("StateManager not initialized");
@@ -171,7 +181,7 @@ export class StateManager {
   }
 
   static UpdateState(stateName: string | Element, newState: any) {
-    const stateManager = window["StateManager" as keyof Window] as StateManager;
+    const stateManager = window["State" as keyof Window] as StateManager;
 
     if (!stateManager) {
       throw new Error("StateManager not initialized");
@@ -480,11 +490,3 @@ export class StateManager {
     return this.states.get(stateName);
   }
 }
-
-declare global {
-  interface Window {
-    State: typeof StateManager;
-  }
-}
-
-window.State = StateManager;
