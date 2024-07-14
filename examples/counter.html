@@ -29,8 +29,9 @@
     <script type="module" defer>
       import { StateManager } from "/dist/state.js";
 
+      //make sure to use window to make the functions global in module scripts
       window.increment = (e, states) => {
-        StateManager.Update("counter", states.get("counter").value + 1);
+        StateManager.Update("counter", states.get("counter").value + 1); // Using the StateManager.Update method to update the state
       };
 
       window.decrement = (e, states) => {
