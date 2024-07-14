@@ -31,12 +31,11 @@
       import { StateManager } from "/dist/state.js";
 
       window.increment = (e, states) => {
-        StateManager.UpdateState("counter", states.counter.value + 1);
+        StateManager.Update("counter", states.get("counter").value + 1);
       };
 
       window.decrement = (e, states) => {
-        console.log(states);
-        StateManager.UpdateState("counter", states.counter.value - 1);
+        StateManager.Update("counter", states.get("counter").value - 1);
       };
 
       const stateInstance = new StateManager(document.body);

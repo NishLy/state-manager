@@ -68,7 +68,7 @@ export class StateManager {
     listeners: Map<string, Function[]>;
   }[] = [];
 
-  private states: Map<string, State> = new Map();
+  private rawStates: Map<string, State> = new Map();
 
   constructor(
     public elcoverage: HTMLElement,
@@ -116,8 +116,8 @@ export class StateManager {
     }
   }
 
-  get state(): ReadOnlyStates {
-    return Array.from(this.states.values()).reduce((acc, curr) => {
+  get states(): ReadOnlyStates {
+    return Array.from(this.rawStates.values()).reduce((acc, curr) => {
       return {
         ...acc,
         [curr.name]: {
@@ -151,7 +151,7 @@ export class StateManager {
 
     const newState = new State(
       sliceName,
-      stateManager.states.get(sliceName)?.value
+      stateManager.rawStates.get(sliceName)?.value
     );
 
     if (!newState) {
@@ -187,7 +187,7 @@ export class StateManager {
     return slice;
   }
 
-  static UpdateState(stateName: string | Element, newState: any) {
+  static Update(stateName: string | Element, newState: any) {
     const stateManager = window["State" as keyof Window] as StateManager;
 
     if (!stateManager) {
@@ -209,10 +209,13 @@ export class StateManager {
     StateManager.Dispatch({ type, payload });
   }
 
-  private defineListeners(
-    producer: VirtualElement,
-    states: ReadOnlyStates
-  ): Map<string, Function[]> {
+  private convertMapToObj(map: Map<string, any>): { [key: string]: any } {
+    return Array.from(map).reduce((acc, curr) => {
+      return { ...acc, [curr[0]]: curr[1] };
+    }, {});
+  }
+
+  private defineListeners(producer: VirtualElement): Map<string, Function[]> {
     const eventListeners: Map<string, Function[]> = new Map();
 
     function createCB(fc: Function | string) {
@@ -224,7 +227,7 @@ export class StateManager {
       ) {
         cb = window[fc as keyof Window];
       } else {
-        cb = eval(fc as string);
+        cb = eval?.(fc as string);
       }
 
       try {
@@ -237,11 +240,13 @@ export class StateManager {
 
       return function modifiedEventCallback(
         e: Event,
-        states: ReadOnlyStates
+        states: Map<string, State>
       ): void {
         return cb(e, states);
       };
     }
+
+    const rawStates = this.rawStates;
 
     function ModifyListeners(producer: VirtualElement) {
       const regExp = /^on([a-zA-Z0-9_]+)/;
@@ -261,7 +266,7 @@ export class StateManager {
           const fc = createCB(producer.getAttribute(match));
 
           producer.$host!.addEventListener(eventKey, (e: Event) => {
-            fc(e, states);
+            fc(e, rawStates);
           });
 
           Object.defineProperty(producer.$host, eventKey, {
@@ -279,7 +284,7 @@ export class StateManager {
   }
 
   private attachProducerListeners(producer: VirtualElement) {
-    const eventListeners = this.defineListeners(producer, this.state);
+    const eventListeners = this.defineListeners(producer);
 
     producer.setPorp("eventListeners", eventListeners);
 
@@ -316,16 +321,16 @@ export class StateManager {
         consumer.getAttribute("data-state-initialvalue") || "null"
       );
 
-      if (!this.states.get(stateName)) {
+      if (!this.rawStates.get(stateName)) {
         this.setState(stateName, stateInitialValue);
       } else {
-        this.setState(stateName, this.states.get(stateName)?.value);
+        this.setState(stateName, this.rawStates.get(stateName)?.value);
       }
     });
   }
 
   setState(stateName: string, newStateValue?: any) {
-    let state = this.states.get(stateName);
+    let state = this.rawStates.get(stateName);
 
     if (!state) {
       state = new State(stateName, newStateValue);
@@ -333,8 +338,8 @@ export class StateManager {
 
     const newState = new State(stateName, newStateValue, state.initial);
     Object.freeze(newState);
-    this.states.delete(stateName);
-    this.states.set(stateName, newState);
+    this.rawStates.delete(stateName);
+    this.rawStates.set(stateName, newState);
     this.updateConsumer(stateName, newState);
   }
 
@@ -344,12 +349,12 @@ export class StateManager {
     }
     this.attachedConsumers.forEach((consumer) => {
       if (consumer.getAttribute("data-state-consumer") === stateName) {
-        this.renderConsumer(consumer, state);
+        this.renderConsumer(consumer, this.states);
       }
     });
   }
 
-  renderConsumer(consumer: VirtualElement, state: State) {
+  renderConsumer(consumer: VirtualElement, states: ReadOnlyStates) {
     const { attributeFunctionCallbacks, textNodesFunctionCallbacks } =
       consumer.getPorp("templates") ||
       this.extractTemplateFormConsumer(consumer);
@@ -368,25 +373,23 @@ export class StateManager {
     newVirtual.bindHost(consumer.$host);
 
     if (consumer.$host instanceof HTMLElement) {
-      attributeFunctionCallbacks.forEach(
-        (listener: { [key: string]: string }) => {
-          const [key] = Object.keys(listener);
-          const value = listener[key];
-
-          if (value.startsWith("state")) {
-            newVirtual.setAttribute(key, state.value);
-          }
-
-          if (value.includes("state.")) {
-            const stateValue = state.value[value.split("state.")[1]];
-            newVirtual.setAttribute(key, stateValue);
-          }
-        }
-      );
+      // attributeFunctionCallbacks.forEach(
+      //   (listener: { [key: string]: string }) => {
+      //     const [key] = Object.keys(listener);
+      //     const value = listener[key];
+      //     if (value.startsWith("state")) {
+      //       newVirtual.setAttribute(key, state.value);
+      //     }
+      //     if (value.includes("state.")) {
+      //       const stateValue = state.value[value.split("state.")[1]];
+      //       newVirtual.setAttribute(key, stateValue);
+      //     }
+      //   }
+      // );
     } else if (consumer.$host instanceof Text) {
       newVirtual.setPorp(
         "nodeValue",
-        this.config.parser.StringfyArray(textNodesFunctionCallbacks, this.state)
+        this.config.parser.StringfyArray(textNodesFunctionCallbacks, states)
       );
     }
 
@@ -403,14 +406,14 @@ export class StateManager {
     ) {
       this.config.templateEngineProcessor.proccess(
         consumer,
-        state,
+        states,
         this.renderConsumer.bind(this)
       );
     }
 
     if (consumer.children) {
       consumer.children.forEach((child) => {
-        this.renderConsumer(child, state);
+        this.renderConsumer(child, states);
       });
     }
   }
@@ -492,6 +495,6 @@ export class StateManager {
   }
 
   getState(stateName: string): State | undefined {
-    return this.states.get(stateName);
+    return this.rawStates.get(stateName);
   }
 }
