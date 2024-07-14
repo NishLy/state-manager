@@ -131,7 +131,6 @@ export class StateManager {
 
     const [sliceName, reducerName] = action.type!.split("/");
 
-    console.log(sliceName, reducerName, stateManager.attacedSlices);
     const slice = stateManager.attacedSlices.get(sliceName);
 
     if (!slice) {
@@ -153,9 +152,7 @@ export class StateManager {
       throw new Error("State not found");
     }
 
-    console.log(newState);
     reducer(newState, action);
-    console.log(newState);
 
     stateManager.setState(sliceName, newState.value);
   }

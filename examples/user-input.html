@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>User Input With Slice</title>
+    <title>User Input With Dispatcher</title>
   </head>
   <body
     style="
@@ -16,9 +16,9 @@
     "
   >
     <h1 align="center">User Input with slice</h1>
-    <h2 data-state-consumer="user" value="state" align="center">
+    <h2 data-state-consumer="user" align="center">
       Name: {state.user.value.name} <br />
-      Age: {state.user.value.age}
+      Age: {state.user.value.age + " years"}
     </h2>
     <form>
       <label for="name">Name:</label>
@@ -30,6 +30,7 @@
     <script type="module" defer>
       import { StateManager } from "/dist/state.js";
 
+      // create a slice
       const userSlice = StateManager.CreateSlice({
         name: "user",
         initialValue: {
@@ -49,15 +50,17 @@
       const { setName, setAge } = userSlice.actions;
 
       const stateManager = new StateManager(document.body, {
-        slices: [userSlice],
+        slices: [userSlice], // add slice to state manager
       });
 
       console.log(stateManager);
 
+      // change state with action dispatch
       document.querySelector("#name").addEventListener("input", (e) => {
         StateManager.Dispatch(setName(e.target.value));
       });
 
+      // change state with instance dispatch
       document.querySelector("#age").addEventListener("input", (e) => {
         stateManager.dispatch("user/setAge", e.target.value);
       });
