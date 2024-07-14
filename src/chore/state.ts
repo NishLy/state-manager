@@ -9,7 +9,7 @@ class State {
       }
     }
   
-    get current() {
+    get value() {
       return this.currentValue;
     }
   

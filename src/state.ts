@@ -6,12 +6,57 @@ type ConfiGStateManagerType = {
   templateEngineProcessor?: any;
   parser: HTMLParser;
   keyword?: string;
+  slices?: StateManagerSlice[];
+};
+
+type StateManagerSlice = {
+  name: string;
+  reducers: {
+    [key: string]: ReducerFC;
+  };
+  actions: {
+    [x: string]: ActionFC;
+  };
+  state: State;
+};
+
+type ActionPayload = {
+  type?: string;
+  payload?: any;
+};
+
+type ActionPayloadDefindedType = {
+  payload: any;
+};
+
+type StateValue = {
+  value: any;
+};
+
+type ReducerFC = (state: StateValue, action: ActionPayload) => void;
+type ActionFC = (action: ActionPayloadDefindedType) => ActionPayload;
+type CreateSliceConfig = {
+  name: string;
+  initialState: {
+    value: any;
+  };
+  reducers: {
+    [key: string]: ReducerFC;
+  };
+};
+
+type ReadOnlyStates = {
+  [key: string]: {
+    value: any;
+    initial: any;
+  };
 };
 
 export class StateManager {
   public loaded = false;
   public attachedConsumers: VirtualElement[] = [];
   public attachedProducers: VirtualElement[] = [];
+  public attacedSlices: Map<string, StateManagerSlice> = new Map();
   public attachedListeners: {
     virtualDom: VirtualElement;
     listeners: Map<string, Function[]>;
@@ -37,16 +82,91 @@ export class StateManager {
     this.initConsumer();
     this.initProducer();
 
+    this.init_slices(this.config.slices || []);
+
     if ((window as any)["StateManager" as keyof Window])
       throw new Error("StateManager already initialized");
     (window as any)["StateManager" as keyof Window] = this;
     this.loaded = true;
   }
 
-  get state() {
+  init_slices(slices: StateManagerSlice[]) {
+    this.attacedSlices = new Map(slices.map((slice) => [slice.name, slice]));
+    slices.forEach((slice) => {
+      this.states.set(slice.name, slice.state);
+      this.setState(slice.name, this.states.get(slice.name)?.value);
+    });
+  }
+
+  get state(): ReadOnlyStates {
     return Array.from(this.states.values()).reduce((acc, curr) => {
-      return { ...acc, [curr.name]: curr.current };
+      return {
+        ...acc,
+        [curr.name]: {
+          value: curr.value,
+          initial: curr.initial,
+        },
+      };
     }, {});
+  }
+
+  static Dispatch(action: ActionPayload) {
+    const stateManager = window["StateManager" as keyof Window] as StateManager;
+
+    if (!stateManager) {
+      throw new Error("StateManager not initialized");
+    }
+
+    const [sliceName, reducerName] = action.type!.split("/");
+
+    const slice = stateManager.attacedSlices.get(sliceName);
+
+    if (!slice) {
+      throw new Error("Slice not found");
+    }
+
+    const reducer = slice.reducers[reducerName];
+
+    if (!reducer) {
+      throw new Error("Reducer not found");
+    }
+
+    const newState = new State(
+      sliceName,
+      stateManager.states.get(sliceName)?.value
+    );
+
+    if (!newState) {
+      throw new Error("State not found");
+    }
+
+    reducer(newState, action);
+
+    stateManager.setState(sliceName, newState.value);
+  }
+
+  static CreateSlice(config: CreateSliceConfig): StateManagerSlice {
+    const reducers: { [key: string]: ActionFC } = {};
+
+    for (let key in config.reducers) {
+      reducers[key] = function (action: ActionPayload) {
+        return {
+          type: "name/" + key,
+          payload: action,
+        };
+      };
+    }
+
+    const slice = {
+      name: config.name,
+      reducers: config.reducers,
+      actions: {
+        ...reducers,
+      },
+      state: new State(config.name, config.initialState),
+    };
+
+    return slice;
   }
 
   static UpdateState(stateName: string | Element, newState: any) {
@@ -238,11 +358,11 @@ export class StateManager {
           const value = listener[key];
 
           if (value.startsWith("state")) {
-            newVirtual.setAttribute(key, state.current);
+            newVirtual.setAttribute(key, state.value);
           }
 
           if (value.includes("state.")) {
-            const stateValue = state.current[value.split("state.")[1]];
+            const stateValue = state.value[value.split("state.")[1]];
             newVirtual.setAttribute(key, stateValue);
           }
         }
