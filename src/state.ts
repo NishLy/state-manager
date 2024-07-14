@@ -44,7 +44,7 @@ type ReducerFC = (state: StateValue, action: ActionPayload) => void;
 type ActionFC = (action: ActionPayloadDefindedType) => ActionPayload;
 type CreateSliceConfig = {
   name: string;
-  initialState: {
+  initialValue: {
     value: any;
   };
   reducers: {
@@ -84,13 +84,19 @@ export class StateManager {
   }
 
   init() {
+    if (!this.config.parser) {
+      this.config.parser = new HTMLParser({
+        separator: "{}",
+      });
+    }
+    this.init_slices(this.config.slices || []);
+
     this.attachedConsumers = this.getAllConsumer();
     this.attachedProducers = this.getAllProducer();
 
+
     this.initConsumer();
     this.initProducer();
-
-    this.init_slices(this.config.slices || []);
 
     if ((window as any)["State" as keyof Window])
       throw new Error("StateManager already initialized");
@@ -101,11 +107,7 @@ export class StateManager {
   init_slices(slices: StateManagerSlice[]) {
     this.attacedSlices = new Map(slices.map((slice) => [slice.name, slice]));
     for (let slice of this.attacedSlices) {
-      this.states.set(slice[0], slice[1].state);
-      this.setState(
-        this.states.get(slice[0])!.name,
-        this.states.get(slice[0])!.value
-      );
+      this.setState(slice[0], slice[1].state.value);
     }
   }
 
@@ -130,6 +132,7 @@ export class StateManager {
 
     const [sliceName, reducerName] = action.type!.split("/");
 
+    console.log(sliceName, reducerName,stateManager.attacedSlices);
     const slice = stateManager.attacedSlices.get(sliceName);
 
     if (!slice) {
@@ -147,11 +150,15 @@ export class StateManager {
       stateManager.states.get(sliceName)?.value
     );
 
+    
     if (!newState) {
       throw new Error("State not found");
     }
-
+    
+    console.log(newState);
     reducer(newState, action);
+    console.log(newState);
+
 
     stateManager.setState(sliceName, newState.value);
   }
@@ -162,7 +169,7 @@ export class StateManager {
     for (let key in config.reducers) {
       reducers[key] = function (action: ActionPayload) {
         return {
-          type: "name/" + key,
+          type: config.name + "/" + key,
           payload: action,
         };
       };
@@ -174,7 +181,7 @@ export class StateManager {
       actions: {
         ...reducers,
       },
-      state: new State(config.name, config.initialState),
+      state: new State(config.name, config.initialValue),
     };
 
     return slice;
@@ -310,20 +317,18 @@ export class StateManager {
       );
 
       if (!this.states.get(stateName)) {
-        const state = new State(stateName, stateInitialValue);
-        this.states.set(stateName, state);
         this.setState(stateName, stateInitialValue);
       } else {
-        this.setState(stateName);
+        this.setState(stateName, this.states.get(stateName)?.value);
       }
     });
   }
 
   setState(stateName: string, newStateValue?: any) {
-    const state = this.states.get(stateName);
+    let state = this.states.get(stateName);
 
     if (!state) {
-      return console.warn(`State ${stateName} not found`);
+      state = new State(stateName, newStateValue);
     }
 
     const newState = new State(stateName, newStateValue, state.initial);

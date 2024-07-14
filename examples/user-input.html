@@ -5,32 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>User Input With Slice</title>
   </head>
-  <body>
-    <h1>User Input with slice</h1>
-    <script type="module">
+  <body
+    style="
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      width: 100%;
+      height: 100vh;
+    "
+  >
+    <h1 align="center">User Input with slice</h1>
+    <h2 data-state-consumer="user" value="state" align="center">
+      Name: {state.user.value.name} <br />
+      Age: {state.user.value.age}
+    </h2>
+    <form>
+      <label for="name">Name:</label>
+      <input type="text" id="name" name="name" data-state-producer id="name" />
+      <br />
+      <label for="age">Age:</label>
+      <input type="number" id="age" name="age" data-state-producer id="age" />
+    </form>
+    <script type="module" defer>
       import { StateManager } from "/dist/state.js";
 
       const userSlice = StateManager.CreateSlice({
         name: "user",
-        initialState: {
+        initialValue: {
           name: "John Doe",
-          age: 25,
+          age: 30,
         },
         reducers: {
           setName: (state, action) => {
-            state.name = action.payload;
+            state.value.name = action.payload;
           },
           setAge: (state, action) => {
-            state.age = action.payload;
+            state.value.age = action.payload;
           },
         },
       });
+
+      const { setName, setAge } = userSlice.actions;
 
       const stateManager = new StateManager(document.body, {
         slices: [userSlice],
       });
 
       console.log(stateManager);
+
+      document.querySelector("#name").addEventListener("input", (e) => {
+        StateManager.Dispatch(setName(e.target.value));
+      });
+
+      document.querySelector("#age").addEventListener("input", (e) => {
+        stateManager.dispatch("user.setAge", e.target.value);
+      });
     </script>
   </body>
 </html>
