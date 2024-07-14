@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body
+    style="
+      display: flex;
+      justify-content: center;
+      flex-direction: column;
+      align-items: center;
+    "
+  >
+    <h1>Counter</h1>
+    <h2 data-state-consumer="counter" data-state-initialvalue="0">
+      Count: {state.counter.value}
+    </h2>
+
+    <div>
+      <button data-state-producer id="increment" onclick="increment">
+        Increment
+      </button>
+      <button data-state-producer id="decrement" onclick="decrement">
+        Decrement
+      </button>
+    </div>
+
+    <script type="module" defer>
+      import { StateManager } from "/dist/state.js";
+
+      window.increment = (e, states) => {
+        StateManager.UpdateState("counter", states.counter.value + 1);
+      };
+
+      window.decrement = (e, states) => {
+        console.log(states);
+        StateManager.UpdateState("counter", states.counter.value - 1);
+      };
+
+      const stateInstance = new StateManager(document.body);
+
+      console.log(stateInstance);
+    </script>
+
+    <script type="module"></script>
+  </body>
+</html>

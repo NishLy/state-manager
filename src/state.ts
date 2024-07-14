@@ -4,8 +4,7 @@ import HTMLParser from "./chore/HTMLparser.js";
 
 declare global {
   interface Window {
-    StateManager: typeof StateManager;
-    State: StateManager;
+    StateManager: StateManager;
   }
 }
 
@@ -81,6 +80,13 @@ export class StateManager {
     }
   ) {
     this.init();
+  }
+
+  public attachToWindow() {
+    if ((window as any)["State" as keyof Window])
+      return console.warn("StateManager already initialized");
+    (window as any)["State" as keyof Window] = this;
+    this.loaded = true;
   }
 
   init() {
@@ -196,11 +202,7 @@ export class StateManager {
       return;
     }
 
-    stateManager.attachedConsumers
-      .filter(
-        (consumer) => consumer.getAttribute("data-state-consumer") === stateName
-      )
-      .forEach(() => stateManager.setState(stateName, newState));
+    stateManager.setState(stateName, newState);
   }
 
   public dispatch(type: string, payload: any) {
@@ -209,7 +211,7 @@ export class StateManager {
 
   private defineListeners(
     producer: VirtualElement,
-    states: Map<string, State>
+    states: ReadOnlyStates
   ): Map<string, Function[]> {
     const eventListeners: Map<string, Function[]> = new Map();
 
@@ -235,7 +237,7 @@ export class StateManager {
 
       return function modifiedEventCallback(
         e: Event,
-        states: Map<string, State>
+        states: ReadOnlyStates
       ): void {
         return cb(e, states);
       };
@@ -277,7 +279,7 @@ export class StateManager {
   }
 
   private attachProducerListeners(producer: VirtualElement) {
-    const eventListeners = this.defineListeners(producer, this.states);
+    const eventListeners = this.defineListeners(producer, this.state);
 
     producer.setPorp("eventListeners", eventListeners);
 
@@ -348,7 +350,6 @@ export class StateManager {
   }
 
   renderConsumer(consumer: VirtualElement, state: State) {
-    console.log(consumer);
     const { attributeFunctionCallbacks, textNodesFunctionCallbacks } =
       consumer.getPorp("templates") ||
       this.extractTemplateFormConsumer(consumer);
