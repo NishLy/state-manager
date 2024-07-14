@@ -348,6 +348,7 @@ export class StateManager {
   }
 
   renderConsumer(consumer: VirtualElement, state: State) {
+    console.log(consumer);
     const { attributeFunctionCallbacks, textNodesFunctionCallbacks } =
       consumer.getPorp("templates") ||
       this.extractTemplateFormConsumer(consumer);
