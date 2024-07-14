@@ -373,19 +373,12 @@ export class StateManager {
     newVirtual.bindHost(consumer.$host);
 
     if (consumer.$host instanceof HTMLElement) {
-      // attributeFunctionCallbacks.forEach(
-      //   (listener: { [key: string]: string }) => {
-      //     const [key] = Object.keys(listener);
-      //     const value = listener[key];
-      //     if (value.startsWith("state")) {
-      //       newVirtual.setAttribute(key, state.value);
-      //     }
-      //     if (value.includes("state.")) {
-      //       const stateValue = state.value[value.split("state.")[1]];
-      //       newVirtual.setAttribute(key, stateValue);
-      //     }
-      //   }
-      // );
+      attributeFunctionCallbacks.forEach(
+        (item: { [key: string]: Function }) => {
+          const key = Object.keys(item)[0];
+          newVirtual.setAttribute(key, item[key](states));
+        }
+      );
     } else if (consumer.$host instanceof Text) {
       newVirtual.setPorp(
         "nodeValue",
@@ -438,14 +431,18 @@ export class StateManager {
   }
 
   private extractTemplateFormConsumer(consumer: VirtualElement): {
-    attributeFunctionCallbacks: Set<{ [key: string]: string }>;
+    attributeFunctionCallbacks: Set<{ [key: string]: Function }>;
     textNodesFunctionCallbacks: Function[];
   } {
-    const attributeFunctionCallbacks: Set<{ [key: string]: string }> =
+    const attributeFunctionCallbacks: Set<{ [key: string]: Function }> =
       new Set();
     let textNodesFunctionCallbacks = new Array();
 
-    function getAttributeListener(el: VirtualElement) {
+    function getAttributeListener(
+      el: VirtualElement,
+      parser: (html: string, keyword: string) => (Function | string)[],
+      keyword: string
+    ) {
       for (
         let att,
           i = 0,
@@ -460,9 +457,16 @@ export class StateManager {
           continue;
         }
 
-        if (att.nodeValue && att.nodeValue.startsWith("state")) {
+        if (
+          att.nodeValue &&
+          att.nodeValue.startsWith("{state") &&
+          att.nodeValue.endsWith("}")
+        ) {
           attributeFunctionCallbacks.add({
-            [att.nodeName]: att.nodeValue,
+            [att.nodeName]: parser(
+              att.nodeValue,
+              keyword || "state"
+            )[0] as Function,
           });
         }
       }
@@ -476,7 +480,12 @@ export class StateManager {
       return proccesor(el.getPorp("nodeValue") as string, keyword);
     }
 
-    if (consumer.$host instanceof Element) getAttributeListener(consumer);
+    if (consumer.$host instanceof Element)
+      getAttributeListener(
+        consumer,
+        this.config.parser.ParseStringToFunction.bind(this.config.parser),
+        this.config.keyword || "state"
+      );
     else
       textNodesFunctionCallbacks = getTextNodeListener(
         consumer,

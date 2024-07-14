@@ -70,6 +70,7 @@ class VirtualElement {
 
       if (this.props.attributes && el instanceof HTMLElement) {
         for (let att in this.props.attributes) {
+          if(att in this.props) continue;
           el.setAttribute(att, this.props.attributes[att]);
         }
       }
