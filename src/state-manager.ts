@@ -265,9 +265,11 @@ export class StateManager {
         ) {
           const fc = createCB(producer.getAttribute(match));
 
-          producer.$host!.addEventListener(eventKey, (e: Event) => {
+          producer.$host?.addEventListener(eventKey, (e: Event) => {
             fc(e, rawStates);
           });
+
+          producer.setPorp(eventKey, fc);
 
           Object.defineProperty(producer.$host, eventKey, {
             value: null,
